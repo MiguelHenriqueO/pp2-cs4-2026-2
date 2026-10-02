@@ -1,0 +1,11 @@
+export interface UpdateCarDto {
+  brand?: string;
+  model?: string;
+  color?: string;
+  year_manufacture?: number;
+  imported?: boolean;
+  plates?: string;
+  selling_Date?: string;
+  selling_price?: number;
+  customer_id?: number;
+}

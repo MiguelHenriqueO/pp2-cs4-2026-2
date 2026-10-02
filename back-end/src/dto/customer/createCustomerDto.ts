@@ -7,7 +7,7 @@ export interface CreateCustomerDto {
   complements?: string | null;
   district: string;
   municipality: string;
-  state: string;
+  state: string;  
   phone: string;
   email: string;
 }
