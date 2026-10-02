@@ -13,10 +13,30 @@ Promise<Car[]>{
 }
 export async function findById(id: number):
 Promise<Car> {
-    const customer = await repository.findById(id);
+    const car = await repository.findById(id);
 
     if (!car){
-        throw new NotFoundError("Carro não encontrado ")
+        throw new NotFoundError("Carro não encontrado ");
     }
+
+    return car
 }
 
+export async function create(data: CreateCarDto): Promise<Car> {
+  return repository.create(data);
+}
+
+export async function update(
+  id: number,
+  data: UpdateCarDto,
+): Promise<Car> {
+  await findById(id);
+
+  return repository.update(id, data);
+}
+
+export async function remove(id: number): Promise<Car> {
+  await findById(id);
+
+  return repository.remove(id);
+}
