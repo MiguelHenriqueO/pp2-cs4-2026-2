@@ -1,92 +1,101 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import type { Customer } from '../types/Customer'
 
 
-const API_URL = `${import.meta.env.VITE_API_BASE}/customers`
+const API_BASE = import.meta.env.VITE_API_BASE
+const API_URL = `${API_BASE}/cars`
+const MAX_MANUFACTURE_YEAR = new Date().getFullYear() + 1
 
 
-// Inputs controlados recebem strings, inclusive os campos opcionais.
+// Inputs controlados recebem strings, inclusive os campos numéricos e opcionais.
+// A conversão para os tipos esperados pelo back-end ocorre antes da gravação.
 const formDefaults = {
- name: '',
- ident_document: '',
- birth_date: '',
- street_name: '',
- house_number: '',
- complements: '',
- district: '',
- municipality: '',
- state: '',
- phone: '',
- email: '',
+ brand: '',
+ model: '',
+ color: '',
+ year_manufacture: '',
+ imported: false,
+ plates: '',
+ selling_date: '',
+ selling_price: '',
+ customer_id: '',
 }
 
 
-// Lista de Unidades da Federação para construir uma lista de escolha
-const states = [
- { value: 'AC', label: 'Acre' },
- { value: 'AL', label: 'Alagoas' },
- { value: 'AP', label: 'Amapá' },
- { value: 'AM', label: 'Amazonas' },
- { value: 'BA', label: 'Bahia' },
- { value: 'CE', label: 'Ceará' },
- { value: 'DF', label: 'Distrito Federal' },
- { value: 'ES', label: 'Espírito Santo' },
- { value: 'GO', label: 'Goiás' },
- { value: 'MA', label: 'Maranhão' },
- { value: 'MT', label: 'Mato Grosso' },
- { value: 'MS', label: 'Mato Grosso do Sul' },
- { value: 'MG', label: 'Minas Gerais' },
- { value: 'PA', label: 'Pará' },
- { value: 'PB', label: 'Paraíba' },
- { value: 'PR', label: 'Paraná' },
- { value: 'PE', label: 'Pernambuco' },
- { value: 'PI', label: 'Piauí' },
- { value: 'RJ', label: 'Rio de Janeiro' },
- { value: 'RN', label: 'Rio Grande do Norte' },
- { value: 'RS', label: 'Rio Grande do Sul' },
- { value: 'RO', label: 'Rondônia' },
- { value: 'RR', label: 'Roraima' },
- { value: 'SC', label: 'Santa Catarina' },
- { value: 'SP', label: 'São Paulo' },
- { value: 'SE', label: 'Sergipe' },
- { value: 'TO', label: 'Tocantins' },
+// Lista fechada de cores disponíveis para os veículos.
+const colors = [
+ 'Amarelo',
+ 'Azul',
+ 'Bege',
+ 'Branco',
+ 'Cinza',
+ 'Dourado',
+ 'Laranja',
+ 'Marrom',
+ 'Prata',
+ 'Preto',
+ 'Roxo',
+ 'Verde',
+ 'Vermelho',
+ 'Vinho',
 ]
 
 
 // Função para interpretar e dar mensagens de erro mais
 // inteligíveis aos erros de fetch()
-async function getErrorMessage(response) {
+async function getErrorMessage(response: Response) {
  const error = await response.json().catch(() => null)
  return error?.message || `A requisição falhou (HTTP ${response.status}).`
 }
 
 
-export function CustomersForm() {
+export function CarsForm() {
  const { id } = useParams()
  const navigate = useNavigate()
  const isNew = id === 'new'
 
 
- const [customer, setCustomer] = useState({ ...formDefaults })
+ const [car, setCar] = useState({ ...formDefaults })
+ const [customers, setCustomers] = useState<Customer[]>([])
  const [loading, setLoading] = useState(true)
  const [loadFailed, setLoadFailed] = useState(false)
  const [formModified, setFormModified] = useState(false)
 
 
  // Quando o formulário estiver sendo usado para alterar os dados de
- // um usuário já existente, loadData() será chamado para buscar esses
- // dados no back-end para que os campos já apareçam preenchidos
- async function loadData(active) {
+ // um veículo já existente, loadData() será chamado para buscar esses
+ // dados no back-end para que os campos já apareçam preenchidos.
+ // A lista de clientes também será buscada para preencher o campo de seleção.
+ async function loadData(active: boolean) {
    setLoading(true)
    setLoadFailed(false)
    setFormModified(false)
-   setCustomer({ ...formDefaults })
+   setCar({ ...formDefaults })
 
 
    try {
-     // Se entrou no loadData() por engano quando era para cadastrar
-     // um novo cliente, sai da função sem fazer nada
+     // A lista de clientes precisa ser buscada tanto no cadastro quanto
+     // na edição de um veículo.
+     const customersResponse = await fetch(`${API_BASE}/customers`)
+
+
+     if (!customersResponse.ok) {
+       throw new Error(await getErrorMessage(customersResponse))
+     }
+
+
+     const customersResult: Customer[] = await customersResponse.json()
+
+
+     if (active) {
+       setCustomers(customersResult)
+     }
+
+
+     // Se entrou no loadData() para cadastrar um novo veículo, não há
+     // dados de veículo para buscar e a função pode terminar aqui.
      if (isNew) return
 
 
@@ -103,25 +112,24 @@ export function CustomersForm() {
 
      if (active) {
        // Copia dos dados buscados apenas os campos que fazem parte do formulário.
-       setCustomer({
-         name: result.name ?? '',
-         ident_document: result.ident_document ?? '',
-         birth_date: result.birth_date?.slice(0, 10) ?? '',
-         street_name: result.street_name ?? '',
-         house_number: result.house_number ?? '',
-         complements: result.complements ?? '',
-         district: result.district ?? '',
-         municipality: result.municipality ?? '',
-         state: result.state ?? '',
-         phone: result.phone ?? '',
-         email: result.email ?? '',
+       setCar({
+         brand: result.brand ?? '',
+         model: result.model ?? '',
+         color: result.color ?? '',
+         year_manufacture: result.year_manufacture?.toString() ?? '',
+         imported: result.imported ?? false,
+         plates: result.plates ?? '',
+         selling_date: result.selling_date?.slice(0, 10) ?? '',
+         selling_price: result.selling_price?.toString() ?? '',
+         customer_id: result.customer_id?.toString() ?? '',
        })
      }
    }
    catch (error) {
      if (active) {
        setLoadFailed(true)
-       window.alert(`Não foi possível carregar o cliente. ${error.message}`)
+       const message = error instanceof Error ? error.message : 'Erro desconhecido.'
+       window.alert(`Não foi possível carregar os dados. ${message}`)
      }
    }
    finally {
@@ -131,7 +139,7 @@ export function CustomersForm() {
 
 
  // Este useEffect() será executado sempre que o parâmetro da rota mudar.
- // Uma mundança de rota causa alterações nas variáveis `id` e `isNew`,
+ // Uma mudança de rota causa alterações nas variáveis `id` e `isNew`,
  // que são justamente aquelas monitoradas no VETOR DE DEPENDÊNCIAS.
  useEffect(() => {
    // Evita atualizar o formulário enquanto uma requisição anterior
@@ -149,17 +157,22 @@ export function CustomersForm() {
 
 
  // Toda vez que o valor de um campo for alterado, esta função será chamada
- // para preencher o campo correspondente da variável de estado `customer`
- function handleFieldChange(event) {
+ // para preencher o campo correspondente da variável de estado `car`.
+ function handleFieldChange(
+   event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+ ) {
    const { name, value } = event.target
+   const fieldValue = event.target instanceof HTMLInputElement && event.target.type === 'checkbox'
+     ? event.target.checked
+     : value
 
 
-   setCustomer(previous => ({ ...previous, [name]: value }))
+   setCar(previous => ({ ...previous, [name]: fieldValue }))
    setFormModified(true)
  }
 
 
- async function handleFormSubmit(event) {
+ async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
    event.preventDefault()
 
 
@@ -175,25 +188,27 @@ export function CustomersForm() {
      // Aqui, ajustamos o formato do conteúdo de alguns campos para gravação
      // no banco de dados
      const payload = {
-       ...customer,
-       // Prisma DateTime: data ISO, preservando o dia informado.
-       birth_date: customer.birth_date
-         ? `${customer.birth_date}T00:00:00.000Z`
+       ...car,
+       year_manufacture: Number(car.year_manufacture),
+       imported: car.imported,
+       selling_date: car.selling_date
+         ? `${car.selling_date}T00:00:00.000Z`
          : null,
-       complements: customer.complements || null
+       selling_price: car.selling_price ? Number(car.selling_price) : null,
+       customer_id: car.customer_id ? Number(car.customer_id) : null,
      }
 
 
      // Determinamos o método HTTP com o qual a requisição será enviada
      // ao back-end:
-     // Novo cliente (criação) ~> POST
-     // Cliente existente (atualização) ~> PUT
+     // Novo veículo (criação) ~> POST
+     // Veículo existente (atualização) ~> PUT
      const method = isNew ? 'POST' : 'PUT'
 
 
      // A URI invocada também muda de acordo com a situação:
-     // Novo cliente: http://localhost:8888/customers
-     // Cliente existente: http://localhost:8888/customers/X, onde X é o id do cliente
+     // Novo veículo: http://localhost:8888/cars
+     // Veículo existente: http://localhost:8888/cars/X, onde X é o id do veículo
      const uri = isNew ? API_URL : `${API_URL}/${id}`
 
 
@@ -212,11 +227,12 @@ export function CustomersForm() {
 
      // Não depende de um corpo JSON na resposta de sucesso.
      setFormModified(false)
-     window.alert('Cliente salvo com sucesso.')
-     navigate('/customers') // Retorna à página do formulário
+     window.alert('Veículo salvo com sucesso.')
+     navigate('/cars') // Retorna à página do formulário
    }
    catch (error) {
-     window.alert(`Não foi possível salvar o cliente. ${error.message}`)
+     const message = error instanceof Error ? error.message : 'Erro desconhecido.'
+     window.alert(`Não foi possível salvar o veículo. ${message}`)
    }
    finally {
      setLoading(false)
@@ -232,14 +248,14 @@ export function CustomersForm() {
    }
 
 
-   navigate('/customers')
+   navigate('/cars')
  }
 
 
  return (
    <section className="container py-4">
      <h1 className="mb-4">
-       {isNew ? 'Cadastrar novo cliente' : `Editar cliente ${id}`}
+       {isNew ? 'Cadastrar novo veículo' : `Editar veículo ${id}`}
      </h1>
 
 
@@ -257,191 +273,157 @@ export function CustomersForm() {
 
      <form onSubmit={handleFormSubmit}>
        <fieldset disabled={loading || loadFailed}>
-         <legend className="visually-hidden">Dados do cliente</legend>
+         <legend className="visually-hidden">Dados do veículo</legend>
 
 
          <div className="row g-3">
-           <div className="col-12 col-md-12">
-             <label htmlFor="name" className="form-label">
-               Nome completo
-             </label>
+           <div className="col-12 col-md-6">
+             <label htmlFor="brand" className="form-label">Marca</label>
              <input
-               id="name"
-               name="name"
+               id="brand"
+               name="brand"
                type="text"
                className="form-control"
                required
                autoFocus
-               value={customer.name}
+               value={car.brand}
                onChange={handleFieldChange}
              />
            </div>
 
 
            <div className="col-12 col-md-6">
-             <label htmlFor="ident_document" className="form-label">
-               CPF
-             </label>
+             <label htmlFor="model" className="form-label">Modelo</label>
              <input
-               id="ident_document"
-               name="ident_document"
+               id="model"
+               name="model"
                type="text"
                className="form-control"
                required
-               value={customer.ident_document}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-6">
-             <label htmlFor="birth_date" className="form-label">
-               Data de nascimento
-             </label>
-             <input
-               id="birth_date"
-               name="birth_date"
-               type="date"
-               className="form-control"
-               value={customer.birth_date}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-9">
-             <label htmlFor="street_name" className="form-label">
-               Logradouro
-             </label>
-             <input
-               id="street_name"
-               name="street_name"
-               type="text"
-               className="form-control"
-               required
-               value={customer.street_name}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-3">
-             <label htmlFor="house_number" className="form-label">
-               Número
-             </label>
-             <input
-               id="house_number"
-               name="house_number"
-               type="text"
-               className="form-control"
-               required
-               value={customer.house_number}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-6">
-             <label htmlFor="complements" className="form-label">
-               Complemento
-             </label>
-             <input
-               id="complements"
-               name="complements"
-               type="text"
-               className="form-control"
-               value={customer.complements}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-6">
-             <label htmlFor="district" className="form-label">
-               Bairro
-             </label>
-             <input
-               id="district"
-               name="district"
-               type="text"
-               className="form-control"
-               required
-               value={customer.district}
-               onChange={handleFieldChange}
-             />
-           </div>
-
-
-           <div className="col-12 col-md-8">
-             <label htmlFor="municipality" className="form-label">
-               Município
-             </label>
-             <input
-               id="municipality"
-               name="municipality"
-               type="text"
-               className="form-control"
-               required
-               value={customer.municipality}
+               value={car.model}
                onChange={handleFieldChange}
              />
            </div>
 
 
            <div className="col-12 col-md-4">
-             <label htmlFor="state" className="form-label">
-               UF
-             </label>
+             <label htmlFor="color" className="form-label">Cor</label>
              <select
-               id="state"
-               name="state"
+               id="color"
+               name="color"
                className="form-select"
                required
-               value={customer.state}
+               value={car.color}
                onChange={handleFieldChange}
              >
                <option value="">Selecione...</option>
-               {states.map(state => (
-                 <option key={state.value} value={state.value}>
-                   {state.label}
-                 </option>
+               {colors.map(color => (
+                 <option key={color} value={color}>{color}</option>
                ))}
              </select>
            </div>
 
 
-           <div className="col-12 col-md-6">
-             <label htmlFor="phone" className="form-label">
-               Telefone/celular
+           <div className="col-12 col-md-4">
+             <label htmlFor="year_manufacture" className="form-label">
+               Ano de fabricação
              </label>
              <input
-               id="phone"
-               name="phone"
-               type="tel"
+               id="year_manufacture"
+               name="year_manufacture"
+               type="number"
                className="form-control"
                required
-               value={customer.phone}
+               min="1886"
+               max={MAX_MANUFACTURE_YEAR}
+               value={car.year_manufacture}
+               onChange={handleFieldChange}
+             />
+           </div>
+
+
+           <div className="col-12 col-md-4">
+             <label htmlFor="plates" className="form-label">Placas</label>
+             <input
+               id="plates"
+               name="plates"
+               type="text"
+               className="form-control"
+               required
+               value={car.plates}
+               onChange={handleFieldChange}
+             />
+           </div>
+
+
+           <div className="col-12">
+             <div className="form-check">
+               <input
+                 id="imported"
+                 name="imported"
+                 type="checkbox"
+                 className="form-check-input"
+                 checked={car.imported}
+                 onChange={handleFieldChange}
+               />
+               <label htmlFor="imported" className="form-check-label">
+                 Veículo importado
+               </label>
+             </div>
+           </div>
+
+
+           <div className="col-12 col-md-6">
+             <label htmlFor="selling_date" className="form-label">
+               Data da venda
+             </label>
+             <input
+               id="selling_date"
+               name="selling_date"
+               type="date"
+               className="form-control"
+               value={car.selling_date}
                onChange={handleFieldChange}
              />
            </div>
 
 
            <div className="col-12 col-md-6">
-             <label htmlFor="email" className="form-label">
-               E-mail
+             <label htmlFor="selling_price" className="form-label">
+               Preço de venda
              </label>
              <input
-               id="email"
-               name="email"
-               type="email"
+               id="selling_price"
+               name="selling_price"
+               type="number"
                className="form-control"
-               required
-               value={customer.email}
+               min="0"
+               step="0.01"
+               value={car.selling_price}
                onChange={handleFieldChange}
              />
            </div>
 
 
+           <div className="col-12">
+             <label htmlFor="customer_id" className="form-label">
+               Cliente comprador
+             </label>
+             <select
+               id="customer_id"
+               name="customer_id"
+               className="form-select"
+               value={car.customer_id}
+               onChange={handleFieldChange}
+             >
+               <option value="">Veículo ainda não vendido</option>
+               {customers.map(customer => (
+                 <option key={customer.id} value={customer.id}>
+                   {customer.name} — {customer.ident_document}
+                 </option>
+               ))}
+             </select>
+           </div>
          </div>
 
 
